@@ -64,18 +64,22 @@
     </div>
 
     <script>
+        const apiKey = "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"; // 🔹 Replace with your API Key
+
         function sendMessage() {
             const userInput = document.getElementById("user-input").value;
             if (!userInput) return;
-
+            
             appendMessage("You: " + userInput);
 
-            fetch("https://hr-assistant.moshiuralam-du.workers.dev/", {  // 🔹 Your Cloudflare Worker URL
+            fetch("https://api.openai.com/v1/chat/completions", {
                 method: "POST",
                 headers: {
-                    "Content-Type": "application/json"
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${apiKey}`
                 },
                 body: JSON.stringify({
+                    model: "gpt-4", // 🔹 Use GPT-4 or GPT-3.5
                     messages: [{ role: "user", content: userInput }]
                 })
             })
@@ -84,10 +88,7 @@
                 const botResponse = data.choices[0].message.content;
                 appendMessage("HR AI: " + botResponse);
             })
-            .catch(error => {
-                console.error("Error:", error);
-                appendMessage("HR AI: Sorry, something went wrong.");
-            });
+            .catch(error => console.error("Error:", error));
 
             document.getElementById("user-input").value = "";
         }
