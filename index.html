@@ -152,16 +152,22 @@
         });
 
         const data = await response.json();
+        console.log("DeepSeek API returned:", data);
         document.getElementById("typing")?.remove();
 
-        if (data.choices && data.choices.length > 0) {
+        if (
+          data.choices &&
+          data.choices.length > 0 &&
+          data.choices[0].message &&
+          data.choices[0].message.content
+        ) {
           let botReply = formatText(data.choices[0].message.content);
           saveToHistory("bot", botReply);
           typeOutMessage("bot", botReply, getTimestamp());
         } else {
-          const err = "HR AI: Sorry, no response received.";
-          appendMessage("bot", err, getTimestamp());
-          saveToHistory("bot", err);
+          const fallbackMsg = "HR Agent is currently unable to respond. Please try again in a few moments.";
+          appendMessage("bot", fallbackMsg, getTimestamp());
+          saveToHistory("bot", fallbackMsg);
         }
       } catch (err) {
         document.getElementById("typing")?.remove();
@@ -215,10 +221,10 @@
 
     function formatText(text) {
       return text
-        .replace(/^###\s?/gm, "✅ ")     // Convert ### to ✅
-        .replace(/^- /gm, "• ")          // Convert - to bullet
-        .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>") // Bold formatting
-        .replace(/\n/g, "<br>");         // Line breaks
+        .replace(/^###\s?/gm, "✅ ")           // Replace ### with checkmark
+        .replace(/^- /gm, "• ")                // Replace dash with bullet
+        .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>") // Bold
+        .replace(/\n/g, "<br>");               // Line breaks
     }
 
     userInput.addEventListener("keypress", (e) => {
