@@ -13,14 +13,14 @@
       justify-content: center;
       align-items: center;
       height: 100vh;
-      background-color: #f4f4f4;
+      background-color: #f0f2f5;
     }
     .chat-container {
-      width: 400px;
-      height: 500px;
-      background: white;
+      width: 420px;
+      height: 560px;
+      background: #fff;
       border-radius: 10px;
-      box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
       display: flex;
       flex-direction: column;
       overflow: hidden;
@@ -40,17 +40,37 @@
     input {
       flex: 1;
       padding: 10px;
-      border: 1px solid #ddd;
+      border: 1px solid #ccc;
       border-radius: 5px;
+      font-size: 14px;
     }
     button {
       background: #007bff;
-      color: white;
+      color: #fff;
       border: none;
       padding: 10px 15px;
       margin-left: 10px;
       cursor: pointer;
       border-radius: 5px;
+      font-weight: bold;
+    }
+    .message {
+      margin-bottom: 10px;
+      white-space: pre-wrap;
+      line-height: 1.5;
+    }
+    .user {
+      text-align: right;
+      color: #333;
+    }
+    .bot {
+      text-align: left;
+      color: #007bff;
+    }
+    .typing-indicator {
+      font-style: italic;
+      color: #aaa;
+      margin-top: 5px;
     }
   </style>
 </head>
@@ -59,16 +79,30 @@
     <div class="chat-box" id="chat-box"></div>
     <div class="chat-input">
       <input type="text" id="user-input" placeholder="Ask HR a question..." />
-      <button onclick="sendMessage()">Send</button>
+      <button onclick="sendMessage()" id="send-btn">Send</button>
     </div>
   </div>
 
   <script>
-    async function sendMessage() {
-      const userInput = document.getElementById("user-input").value;
-      if (!userInput) return;
+    const chatBox = document.getElementById("chat-box");
+    const userInput = document.getElementById("user-input");
+    const sendBtn = document.getElementById("send-btn");
 
-      appendMessage("You: " + userInput);
+    async function sendMessage() {
+      const input = userInput.value.trim();
+      if (!input) return;
+
+      appendMessage("You: " + input, "user");
+
+      // Show typing indicator
+      const typingEl = document.createElement("p");
+      typingEl.className = "message bot typing-indicator";
+      typingEl.id = "typing";
+      typingEl.textContent = "HR AI is typing...";
+      chatBox.appendChild(typingEl);
+      scrollToBottom();
+
+      sendBtn.disabled = true;
 
       try {
         const response = await fetch("https://hr-assistant.moshiuralam-du.workers.dev/", {
@@ -77,34 +111,61 @@
             "Content-Type": "application/json"
           },
           body: JSON.stringify({
-            messages: [{ role: "user", content: userInput }]
+            messages: [{ role: "user", content: input }]
           })
         });
 
         const data = await response.json();
+        document.getElementById("typing").remove();
 
         if (data.choices && data.choices.length > 0) {
-          let botReply = data.choices[0].message.content;
-          botReply = botReply.replace(/\\n/g, "\n").trim();  // handle escape characters
-          appendMessage("HR AI: " + botReply);
+          const fullResponse = data.choices[0].message.content.replace(/\\n/g, "\n").trim();
+          typeOutMessage("HR AI: " + fullResponse, "bot");
         } else {
-          appendMessage("HR AI: Sorry, no response received.");
+          appendMessage("HR AI: Sorry, no response received.", "bot");
         }
-      } catch (error) {
-        console.error("Error:", error);
-        appendMessage("HR AI: Error occurred. Try again.");
+
+      } catch (err) {
+        document.getElementById("typing").remove();
+        appendMessage("HR AI: Error occurred. Try again.", "bot");
       }
 
-      document.getElementById("user-input").value = "";
+      userInput.value = "";
+      sendBtn.disabled = false;
     }
 
-    function appendMessage(message) {
-      const chatBox = document.getElementById("chat-box");
-      const messageElement = document.createElement("p");
-      messageElement.textContent = message;
-      chatBox.appendChild(messageElement);
+    function appendMessage(msg, type) {
+      const messageEl = document.createElement("p");
+      messageEl.className = "message " + type;
+      messageEl.textContent = msg;
+      chatBox.appendChild(messageEl);
+      scrollToBottom();
+    }
+
+    function typeOutMessage(text, type) {
+      const messageEl = document.createElement("p");
+      messageEl.className = "message " + type;
+      chatBox.appendChild(messageEl);
+      let index = 0;
+
+      function typeChar() {
+        if (index < text.length) {
+          messageEl.textContent += text.charAt(index);
+          index++;
+          scrollToBottom();
+          setTimeout(typeChar, 15); // typing speed
+        }
+      }
+      typeChar();
+    }
+
+    function scrollToBottom() {
       chatBox.scrollTop = chatBox.scrollHeight;
     }
+
+    userInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") sendMessage();
+    });
   </script>
 </body>
 </html>
