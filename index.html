@@ -16,8 +16,8 @@
       background-color: #f0f2f5;
     }
     .chat-container {
-      width: 420px;
-      height: 560px;
+      width: 450px;
+      height: 600px;
       background: #fff;
       border-radius: 10px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.2);
@@ -55,9 +55,9 @@
       font-weight: bold;
     }
     .message {
-      margin-bottom: 10px;
+      margin-bottom: 15px;
       white-space: pre-wrap;
-      line-height: 1.5;
+      line-height: 1.6;
     }
     .user {
       text-align: right;
@@ -66,6 +66,14 @@
     .bot {
       text-align: left;
       color: #007bff;
+    }
+    .timestamp {
+      font-size: 10px;
+      color: #888;
+    }
+    .avatar {
+      font-size: 18px;
+      margin-right: 5px;
     }
     .typing-indicator {
       font-style: italic;
@@ -80,6 +88,7 @@
     <div class="chat-input">
       <input type="text" id="user-input" placeholder="Ask HR a question..." />
       <button onclick="sendMessage()" id="send-btn">Send</button>
+      <button onclick="stopTyping()" id="stop-btn" style="display:none; background:#dc3545;">Stop</button>
     </div>
   </div>
 
@@ -87,22 +96,49 @@
     const chatBox = document.getElementById("chat-box");
     const userInput = document.getElementById("user-input");
     const sendBtn = document.getElementById("send-btn");
+    const stopBtn = document.getElementById("stop-btn");
+
+    let typingInterval = null;
+    let stopTypingFlag = false;
+
+    loadChatHistory();
+
+    function getTimestamp() {
+      const now = new Date();
+      return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function saveToHistory(role, content) {
+      let history = JSON.parse(localStorage.getItem("chatHistory") || "[]");
+      history.push({ role, content, time: getTimestamp() });
+      localStorage.setItem("chatHistory", JSON.stringify(history));
+    }
+
+    function loadChatHistory() {
+      let history = JSON.parse(localStorage.getItem("chatHistory") || "[]");
+      history.forEach(entry => {
+        appendMessage(entry.role, entry.content, entry.time);
+      });
+    }
 
     async function sendMessage() {
       const input = userInput.value.trim();
       if (!input) return;
 
-      appendMessage("You: " + input, "user");
+      userInput.value = "";
+      sendBtn.disabled = true;
+      stopTypingFlag = false;
+      stopBtn.style.display = "inline-block";
 
-      // Show typing indicator
+      appendMessage("user", input, getTimestamp());
+      saveToHistory("user", input);
+
       const typingEl = document.createElement("p");
       typingEl.className = "message bot typing-indicator";
       typingEl.id = "typing";
-      typingEl.textContent = "HR AI is typing...";
+      typingEl.textContent = "🤖 HR Agent is reasoning...";
       chatBox.appendChild(typingEl);
       scrollToBottom();
-
-      sendBtn.disabled = true;
 
       try {
         const response = await fetch("https://hr-assistant.moshiuralam-du.workers.dev/", {
@@ -116,51 +152,73 @@
         });
 
         const data = await response.json();
-        document.getElementById("typing").remove();
+        document.getElementById("typing")?.remove();
 
         if (data.choices && data.choices.length > 0) {
-          const fullResponse = data.choices[0].message.content.replace(/\\n/g, "\n").trim();
-          typeOutMessage("HR AI: " + fullResponse, "bot");
+          let botReply = formatText(data.choices[0].message.content);
+          saveToHistory("bot", botReply);
+          typeOutMessage("bot", botReply, getTimestamp());
         } else {
-          appendMessage("HR AI: Sorry, no response received.", "bot");
+          const err = "HR AI: Sorry, no response received.";
+          appendMessage("bot", err, getTimestamp());
+          saveToHistory("bot", err);
         }
-
       } catch (err) {
-        document.getElementById("typing").remove();
-        appendMessage("HR AI: Error occurred. Try again.", "bot");
+        document.getElementById("typing")?.remove();
+        const errMsg = "HR AI: Error occurred. Try again.";
+        appendMessage("bot", errMsg, getTimestamp());
+        saveToHistory("bot", errMsg);
       }
 
-      userInput.value = "";
       sendBtn.disabled = false;
     }
 
-    function appendMessage(msg, type) {
+    function appendMessage(role, content, timestamp) {
       const messageEl = document.createElement("p");
-      messageEl.className = "message " + type;
-      messageEl.textContent = msg;
+      messageEl.className = "message " + role;
+
+      const avatar = role === "user" ? "👤" : "🤖";
+      messageEl.innerHTML = `<span class="avatar">${avatar}</span>${content}<div class="timestamp">${timestamp}</div>`;
       chatBox.appendChild(messageEl);
       scrollToBottom();
     }
 
-    function typeOutMessage(text, type) {
+    function typeOutMessage(role, text, timestamp) {
       const messageEl = document.createElement("p");
-      messageEl.className = "message " + type;
+      messageEl.className = "message " + role;
+      const avatar = role === "user" ? "👤" : "🤖";
       chatBox.appendChild(messageEl);
-      let index = 0;
 
-      function typeChar() {
-        if (index < text.length) {
-          messageEl.textContent += text.charAt(index);
-          index++;
+      let index = 0;
+      typingInterval = setInterval(() => {
+        if (stopTypingFlag || index >= text.length) {
+          clearInterval(typingInterval);
+          stopBtn.style.display = "none";
+          messageEl.innerHTML = `<span class="avatar">${avatar}</span>${text}<div class="timestamp">${timestamp}</div>`;
           scrollToBottom();
-          setTimeout(typeChar, 15); // typing speed
+          return;
         }
-      }
-      typeChar();
+        messageEl.innerHTML = `<span class="avatar">${avatar}</span>${text.slice(0, index++)}<div class="timestamp">${timestamp}</div>`;
+        scrollToBottom();
+      }, 15);
+    }
+
+    function stopTyping() {
+      stopTypingFlag = true;
+      clearInterval(typingInterval);
+      stopBtn.style.display = "none";
     }
 
     function scrollToBottom() {
       chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function formatText(text) {
+      return text
+        .replace(/^###\s?/gm, "✅ ")     // Convert ### to ✅
+        .replace(/^- /gm, "• ")          // Convert - to bullet
+        .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>") // Bold formatting
+        .replace(/\n/g, "<br>");         // Line breaks
     }
 
     userInput.addEventListener("keypress", (e) => {
