@@ -84,7 +84,8 @@
         const data = await response.json();
 
         if (data.choices && data.choices.length > 0) {
-          const botReply = data.choices[0].message.content;
+          let botReply = data.choices[0].message.content;
+          botReply = botReply.replace(/\\n/g, "\n").trim();  // handle escape characters
           appendMessage("HR AI: " + botReply);
         } else {
           appendMessage("HR AI: Sorry, no response received.");
