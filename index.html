@@ -101,24 +101,9 @@
     let typingInterval = null;
     let stopTypingFlag = false;
 
-    loadChatHistory();
-
     function getTimestamp() {
       const now = new Date();
       return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    }
-
-    function saveToHistory(role, content) {
-      let history = JSON.parse(localStorage.getItem("chatHistory") || "[]");
-      history.push({ role, content, time: getTimestamp() });
-      localStorage.setItem("chatHistory", JSON.stringify(history));
-    }
-
-    function loadChatHistory() {
-      let history = JSON.parse(localStorage.getItem("chatHistory") || "[]");
-      history.forEach(entry => {
-        appendMessage(entry.role, entry.content, entry.time);
-      });
     }
 
     async function sendMessage() {
@@ -131,7 +116,6 @@
       stopBtn.style.display = "inline-block";
 
       appendMessage("user", input, getTimestamp());
-      saveToHistory("user", input);
 
       const typingEl = document.createElement("p");
       typingEl.className = "message bot typing-indicator";
@@ -162,18 +146,15 @@
           data.choices[0].message.content
         ) {
           let botReply = formatText(data.choices[0].message.content);
-          saveToHistory("bot", botReply);
           typeOutMessage("bot", botReply, getTimestamp());
         } else {
           const fallbackMsg = "HR Agent is currently unable to respond. Please try again in a few moments.";
           appendMessage("bot", fallbackMsg, getTimestamp());
-          saveToHistory("bot", fallbackMsg);
         }
       } catch (err) {
         document.getElementById("typing")?.remove();
         const errMsg = "HR AI: Error occurred. Try again.";
         appendMessage("bot", errMsg, getTimestamp());
-        saveToHistory("bot", errMsg);
       }
 
       sendBtn.disabled = false;
@@ -182,7 +163,6 @@
     function appendMessage(role, content, timestamp) {
       const messageEl = document.createElement("p");
       messageEl.className = "message " + role;
-
       const avatar = role === "user" ? "👤" : "🤖";
       messageEl.innerHTML = `<span class="avatar">${avatar}</span>${content}<div class="timestamp">${timestamp}</div>`;
       chatBox.appendChild(messageEl);
@@ -221,10 +201,10 @@
 
     function formatText(text) {
       return text
-        .replace(/^###\s?/gm, "✅ ")           // Replace ### with checkmark
-        .replace(/^- /gm, "• ")                // Replace dash with bullet
-        .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>") // Bold
-        .replace(/\n/g, "<br>");               // Line breaks
+        .replace(/^###\s?/gm, "✅ ")
+        .replace(/^- /gm, "• ")
+        .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
+        .replace(/\n/g, "<br>");
     }
 
     userInput.addEventListener("keypress", (e) => {
